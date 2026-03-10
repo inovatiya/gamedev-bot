@@ -7,7 +7,7 @@ import json
 
 # ===== ТВОИ ДАННЫЕ =====
 TELEGRAM_TOKEN = "8629154850:AAH5bI-h5NE4Mfj2MzSZWxKm4ddlJZld5Pw"
-OPENROUTER_KEY = "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"
+OPENROUTER_KEY = "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"
 # ========================
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
