@@ -5,7 +5,7 @@ import os
 import g4f
 
 # ===== ТВОИ ДАННЫЕ =====
-TELEGRAM_TOKEN = "8629154850:AAH5bI-h5NE4Mfj2MzSZWxKm4ddlJZld5Pw"
+TELEGRAM_TOKEN = "8629154850:AAG4xSPM2VSQ8zmS7ysij8Jgg3Yvn9VIFKw"
 # ========================
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
@@ -62,4 +62,4 @@ thread.start()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", 
