@@ -6,7 +6,7 @@ from openai import OpenAI
 
 # ===== ТВОИ ДАННЫЕ =====
 TELEGRAM_TOKEN = "8629154850:AAGni8Nj2iqjNBbGfwlD72ufx7nKIJPdywQ"
-DEEPSEEK_KEY = "сюда_вставь_ключ_после_регистрации"  # замени на свой
+DEEPSEEK_KEY = "sk-7be62ec2122d4984b94f51aac9057b50"
 # ========================
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
