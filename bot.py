@@ -17,16 +17,24 @@ def home():
 
 def ask_ai(question):
     try:
+        # Используем провайдера напрямую
         response = g4f.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model=g4f.models.gpt_35_turbo,  # правильный формат
             messages=[
                 {"role": "system", "content": "Ты — дружелюбный GameDev-агент. Помогаешь с кодом, играми, идеями."},
                 {"role": "user", "content": question}
             ],
+            provider=g4f.Provider.Bing,  # можно заменить на другой
         )
-        return response
+        
+        # Проверяем, что пришло
+        if response:
+            return str(response)
+        else:
+            return "❌ Пустой ответ от AI"
+            
     except Exception as e:
-        return f"❌ Ошибка AI: {e}"
+        return f"❌ Ошибка AI: {str(e)}"
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -42,7 +50,11 @@ def handle_message(message):
         bot.reply_to(message, f"❌ Ошибка: {e}")
 
 def run_bot():
-    bot.polling()
+    while True:
+        try:
+            bot.polling()
+        except:
+            pass
 
 thread = threading.Thread(target=run_bot)
 thread.daemon = True
