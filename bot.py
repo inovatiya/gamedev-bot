@@ -5,7 +5,7 @@ import os
 from openai import OpenAI
 
 # ===== ТВОИ ДАННЫЕ =====
-TELEGRAM_TOKEN = "8629154850:AAGni8Nj2iqjNBbGfwlD72ufx7nKIJPdywQ"
+TELEGRAM_TOKEN = "8629154850:AAH5bI-h5NE4Mfj2MzSZWxKm4ddlJZld5Pw"
 DEEPSEEK_KEY = "sk-7be62ec2122d4984b94f51aac9057b50"
 # ========================
 
