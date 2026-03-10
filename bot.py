@@ -2,39 +2,53 @@ import telebot
 from flask import Flask
 import threading
 import os
-from openai import OpenAI
+import requests
+import json
 
 # ===== ТВОИ ДАННЫЕ =====
 TELEGRAM_TOKEN = "8629154850:AAH5bI-h5NE4Mfj2MzSZWxKm4ddlJZld5Pw"
 OPENROUTER_KEY = "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"
 # ========================
 
-client = OpenAI(
-    api_key=OPENROUTER_KEY,
-    base_url="https://openrouter.ai/api/v1"
-)
-
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 app = Flask(__name__)
 
-SYSTEM_PROMPT = "Ты — опытный GameDev-агент. Помогаешь с кодом для игр, игровыми механиками, идеями. Отвечай подробно, с примерами."
+@app.route('/')
+def home():
+    return "GameDev Agent работает!"
+
+# Функция для общения с OpenRouter
+def ask_ai(question):
+    try:
+        response = requests.post(
+            url="https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_KEY}",
+                "Content-Type": "application/json"
+            },
+            data=json.dumps({
+                "model": "deepseek/deepseek-chat",
+                "messages": [
+                    {"role": "system", "content": "Ты — дружелюбный GameDev-агент. Помогаешь с кодом, играми, идеями. Общаешься просто и понятно."},
+                    {"role": "user", "content": question}
+                ]
+            })
+        )
+        result = response.json()
+        return result['choices'][0]['message']['content']
+    except Exception as e:
+        return f"❌ Ошибка AI: {e}"
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "🎮 **GameDev AI Agent**\n\nЯ помогаю с кодом и играми. Задавай вопросы!")
+    bot.reply_to(message, "🎮 **GameDev AI Agent**\n\nПривет! Я помогаю с кодом и играми. Просто напиши мне что хочешь — как другу 🤖")
 
 @bot.message_handler(func=lambda m: True)
 def handle_message(message):
     try:
         bot.send_chat_action(message.chat.id, 'typing')
-        response = client.chat.completions.create(
-            model="deepseek/deepseek-chat",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": message.text}
-            ]
-        )
-        bot.reply_to(message, response.choices[0].message.content)
+        answer = ask_ai(message.text)
+        bot.reply_to(message, answer)
     except Exception as e:
         bot.reply_to(message, f"❌ Ошибка: {e}")
 
