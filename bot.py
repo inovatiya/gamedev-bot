@@ -2,59 +2,35 @@ import telebot
 from flask import Flask
 import threading
 import os
-import requests
-import json
+import g4f
 
 # ===== ТВОИ ДАННЫЕ =====
 TELEGRAM_TOKEN = "8629154850:AAH5bI-h5NE4Mfj2MzSZWxKm4ddlJZld5Pw"
-OPENROUTER_KEY = "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"
 # ========================
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 app = Flask(__name__)
+
 @app.route('/')
 def home():
-    return "GameDev Agent работает!"
+    return "GameDev Agent with g4f работает!"
 
 def ask_ai(question):
     try:
-        print(f"🤖 Запрос: {question}")
-        
-        response = requests.post(
-            url="https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_KEY}",
-                "Content-Type": "application/json"
-            },
-            data=json.dumps({
-                "model": "deepseek/deepseek-chat",
-                "messages": [
-                    {"role": "system", "content": "Ты — дружелюбный GameDev-агент. Помогаешь с кодом, играми, идеями. Отвечай просто и понятно."},
-                    {"role": "user", "content": question}
-                ]
-            })
+        response = g4f.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Ты — дружелюбный GameDev-агент. Помогаешь с кодом, играми, идеями."},
+                {"role": "user", "content": question}
+            ],
         )
-        
-        print(f"📦 Статус ответа: {response.status_code}")
-        result = response.json()
-        print(f"📦 Ответ OpenRouter: {result}")
-        
-        # Проверяем, есть ли ошибка
-        if "error" in result:
-            return f"❌ Ошибка OpenRouter: {result['error']['message']}"
-        
-        # Проверяем, есть ли choices
-        if "choices" not in result:
-            return f"❌ Странный ответ от AI: {result}"
-        
-        return result['choices'][0]['message']['content']
-        
+        return response
     except Exception as e:
-        return f"❌ Ошибка при запросе: {str(e)}"
+        return f"❌ Ошибка AI: {e}"
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "🎮 **GameDev AI Agent**\n\nПривет! Я помогаю с кодом и играми. Просто напиши мне что хочешь 🤖")
+    bot.reply_to(message, "🎮 **GameDev AI Agent**\n\nПривет! Я помогаю с кодом и играми. Просто напиши мне!")
 
 @bot.message_handler(func=lambda m: True)
 def handle_message(message):
