@@ -1,4 +1,3 @@
 pytelegrambotapi
-openai
 flask
-google-generativeai
+g4f
