@@ -1,4 +1,4 @@
-import telebot
+ import telebot
 from flask import Flask
 import threading
 import os
@@ -6,7 +6,7 @@ from openai import OpenAI
 
 # ===== ТВОИ ДАННЫЕ =====
 TELEGRAM_TOKEN = "8629154850:AAH5bI-h5NE4Mfj2MzSZWxKm4ddlJZld5Pw"
-OPENROUTER_KEY = "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"
+OPENROUTER_KEY = "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"
 # ========================
 
 client = OpenAI(
