@@ -2,53 +2,43 @@ import telebot
 from flask import Flask
 import threading
 import os
-from openai import OpenAI
+import google.generativeai as genai
 
 # ===== ТВОИ ДАННЫЕ =====
 TELEGRAM_TOKEN = "8629154850:AAH5bI-h5NE4Mfj2MzSZWxKm4ddlJZld5Pw"
-DEEPSEEK_KEY = "sk-7be62ec2122d4984b94f51aac9057b50"
+GEMINI_KEY = "AIzaSyD1XxU76eOijI7Rr80W2Qj_pU6nwVLd5cQ"  # мой тестовый ключ
 # ========================
 
-bot = telebot.TeleBot(TELEGRAM_TOKEN)
-client = OpenAI(api_key=DEEPSEEK_KEY, base_url="https://api.deepseek.com")
+genai.configure(api_key=GEMINI_KEY)
+model = genai.GenerativeModel('gemini-1.5-flash')
 
+bot = telebot.TeleBot(TELEGRAM_TOKEN)
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "GameDev Agent with AI работает!"
+    return "GameDev Agent with Gemini работает!"
 
-# Системный промпт — как бот должен себя вести
 SYSTEM_PROMPT = """
 Ты — опытный GameDev-агент. Помогаешь с:
-- написанием кода для игр (Python, C#, C++, GDScript)
-- игровыми механиками, физикой, AI
-- идеями для игр
+- кодом для игр (Python, C#, C++, GDScript)
+- игровыми механиками (физика, AI, анимации)
+- идеями для игр и геймдизайном
 - движками Unity, Unreal, Godot, Pygame
-Отвечай подробно, с примерами. Будь дружелюбным.
+
+Отвечай подробно, с примерами кода. Будь дружелюбным.
 """
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "🎮 **GameDev AI Agent**\n\nЯ помогаю с кодом и играми. Задавай вопросы!")
+    bot.reply_to(message, "🎮 **GameDev AI Agent (Gemini)**\n\nЯ помогаю с кодом и играми. Задавай вопросы!")
 
 @bot.message_handler(func=lambda m: True)
 def handle_message(message):
     try:
         bot.send_chat_action(message.chat.id, 'typing')
-        
-        # Отправляем запрос в DeepSeek
-        response = client.chat.completions.create(
-            model="deepseek-chat",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": message.text}
-            ]
-        )
-        
-        answer = response.choices[0].message.content
-        bot.reply_to(message, answer)
-        
+        response = model.generate_content(SYSTEM_PROMPT + "\n\n" + message.text)
+        bot.reply_to(message, response.text)
     except Exception as e:
         bot.reply_to(message, f"❌ Ошибка: {e}")
 
