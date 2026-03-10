@@ -1,3 +1,2 @@
 pytelegrambotapi
-flask
-openai
+google-generativeai
