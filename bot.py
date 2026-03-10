@@ -12,14 +12,14 @@ OPENROUTER_KEY = "sk-or-v1-9eeb78d3597b5ef8c1624dace7c707052f1980d2b784a62c5c5ed
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 app = Flask(__name__)
-
 @app.route('/')
 def home():
     return "GameDev Agent работает!"
 
-# Функция для общения с OpenRouter
 def ask_ai(question):
     try:
+        print(f"🤖 Запрос: {question}")
+        
         response = requests.post(
             url="https://openrouter.ai/api/v1/chat/completions",
             headers={
@@ -29,19 +29,32 @@ def ask_ai(question):
             data=json.dumps({
                 "model": "deepseek/deepseek-chat",
                 "messages": [
-                    {"role": "system", "content": "Ты — дружелюбный GameDev-агент. Помогаешь с кодом, играми, идеями. Общаешься просто и понятно."},
+                    {"role": "system", "content": "Ты — дружелюбный GameDev-агент. Помогаешь с кодом, играми, идеями. Отвечай просто и понятно."},
                     {"role": "user", "content": question}
                 ]
             })
         )
+        
+        print(f"📦 Статус ответа: {response.status_code}")
         result = response.json()
+        print(f"📦 Ответ OpenRouter: {result}")
+        
+        # Проверяем, есть ли ошибка
+        if "error" in result:
+            return f"❌ Ошибка OpenRouter: {result['error']['message']}"
+        
+        # Проверяем, есть ли choices
+        if "choices" not in result:
+            return f"❌ Странный ответ от AI: {result}"
+        
         return result['choices'][0]['message']['content']
+        
     except Exception as e:
-        return f"❌ Ошибка AI: {e}"
+        return f"❌ Ошибка при запросе: {str(e)}"
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "🎮 **GameDev AI Agent**\n\nПривет! Я помогаю с кодом и играми. Просто напиши мне что хочешь — как другу 🤖")
+    bot.reply_to(message, "🎮 **GameDev AI Agent**\n\nПривет! Я помогаю с кодом и играми. Просто напиши мне что хочешь 🤖")
 
 @bot.message_handler(func=lambda m: True)
 def handle_message(message):
