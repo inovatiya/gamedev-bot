@@ -3,7 +3,7 @@ from flask import Flask
 import threading
 import os
 import time
-import logging
+import ng
 import requests
 import 
 import re
