@@ -5,7 +5,7 @@ import os
 import time
 import logging
 import requests
-import random
+import 
 import re
 
 # ==================== НАСТРОЙКИ ====================
