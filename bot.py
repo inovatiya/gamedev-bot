@@ -1,7 +1,7 @@
 import telebot
 from flask import Flask
 import threading
-import os
+os
 import time
 import ng
 import requests
