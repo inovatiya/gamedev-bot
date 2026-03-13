@@ -6,8 +6,7 @@ import time
 import ng
 import requests
 import 
-import re
-
+import 
 # ==================== НАСТРОЙКИ ====================
 TELEGRAM_TOKEN = "8629154850:AAG4xSPM2VSQ8zmS7ysij8Jgg3Yvn9VIFKw"
 ADMIN_ID = 8629154850
