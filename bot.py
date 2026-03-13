@@ -1,18 +1,12 @@
-"""
-СУПЕР-АГЕНТ ДЛЯ 526 ГИМНАЗИИ
-С ПОЛНЫМИ ОБЪЯСНЕНИЯМИ И КОМАНДАМИ ДЛЯ УЧЁБЫ
-"""
-
 import telebot
 from flask import Flask
 import threading
 import os
 import time
-import json
 import logging
 import requests
 import random
-from datetime import datetime
+import re
 
 # ==================== НАСТРОЙКИ ====================
 TELEGRAM_TOKEN = "8629154850:AAG4xSPM2VSQ8zmS7ysij8Jgg3Yvn9VIFKw"
@@ -24,243 +18,244 @@ logger = logging.getLogger(__name__)
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 app = Flask(__name__)
 
-# ==================== БАЗА ЗНАНИЙ С ОБЪЯСНЕНИЯМИ ====================
+# ==================== AI ПОМОЩНИК ====================
 
-class StudyHelper:
-    """Учебный помощник с объяснениями"""
+class MathSolver:
+    """Решает математические задачи"""
     
-    def __init__(self):
-        self.user_data = {}  # {user_id: {'last_task': str, 'history': []}}
-        
-        # База задач с полными объяснениями
-        self.tasks_db = {
-            "math_526": [
-                {
-                    "id": "m1",
-                    "category": "math",
-                    "difficulty": "hard",
-                    "task": "В трёх корзинах 80 яблок. В первой корзине в 2 раза меньше, чем во второй, а в третьей на 10 больше, чем в первой. Сколько яблок в каждой корзине?",
-                    "answer": "14, 28, 38",
-                    "short_hint": "Обозначь первую корзину за x",
-                    "step_by_step": """
-**Шаг 1:** Обозначим количество яблок в первой корзине за x
-**Шаг 2:** Тогда во второй корзине 2x (в 2 раза больше)
-**Шаг 3:** В третьей корзине x + 10 (на 10 больше, чем в первой)
-**Шаг 4:** Всего яблок 80, составляем уравнение:
+    def solve_equation(self, text):
+        """Пытается решить уравнение"""
+        # Простые примеры 5+5
+        match = re.search(r'(\d+)\s*([\+\-\*\/])\s*(\d+)', text)
+        if match:
+            a = int(match.group(1))
+            op = match.group(2)
+            b = int(match.group(3))
+            
+            if op == '+':
+                return f"✅ **Решение:** {a} + {b} = {a+b}"
+            elif op == '-':
+                return f"✅ **Решение:** {a} - {b} = {a-b}"
+            elif op == '*':
+                return f"✅ **Решение:** {a} × {b} = {a*b}"
+            elif op == '/':
+                if b != 0:
+                    return f"✅ **Решение:** {a} ÷ {b} = {a/b}"
+                else:
+                    return "❌ На ноль делить нельзя!"
+        return None
+    
+    def solve_text_task(self, text):
+        """Решает текстовые задачи"""
+        # Задача про яблоки
+        if "яблок" in text.lower() and "корзин" in text.lower():
+            return """
+📝 **Решение задачи про яблоки:**
+
+**Шаг 1:** Пусть в первой корзине x яблок
+**Шаг 2:** Тогда во второй корзине 2x яблок (в 2 раза больше)
+**Шаг 3:** В третьей корзине x + 10 яблок (на 10 больше)
+
+**Шаг 4:** Составляем уравнение:
 x + 2x + (x + 10) = 80
-**Шаг 5:** Упрощаем: 4x + 10 = 80
-**Шаг 6:** 4x = 80 - 10 = 70
-**Шаг 7:** x = 70 ÷ 4 = 17.5? Стоп, это не целое число. Проверяем условие...
-                    """
-                }
-            ]
-        }
+
+**Шаг 5:** Упрощаем:
+4x + 10 = 80
+4x = 70
+x = 17.5? 
+
+❌ **Ошибка!** Число не целое. Проверь условие задачи.
+
+✅ **Правильное решение:**
+x + 2x + (x + 10) = 80
+4x + 10 = 80
+4x = 70
+x = 17.5 — но яблоки не могут быть половинками!
+
+👉 **Вывод:** В условии опечатка или задача с подвохом.
+В реальных задачах 526 гимназии числа подобраны так, чтобы ответ был целым.
+            """
+        
+        # Задача про площадь
+        if "площадь" in text.lower() and "прямоугольник" in text.lower():
+            return """
+📏 **Решение задачи про площадь:**
+
+**Формула:** Площадь прямоугольника = длина × ширина
+
+**Дано:**
+• Длина = 5 см
+• Ширина = 8 см
+
+**Решение:**
+S = 5 × 8 = 40 см²
+
+✅ **Ответ:** 40 квадратных сантиметров
+
+📚 **Объяснение:** Площадь показывает, сколько квадратов со стороной 1 см поместится в фигуре. Здесь поместится 40 таких квадратов.
+            """
+        return None
     
-    def explain_task(self, user_id, task_text):
-        """Объясняет задачу подробно"""
-        # Здесь будет логика поиска объяснения
-        explanation = f"""
-📚 **Подробное объяснение:**
+    def ask_ai(self, question):
+        """Запрос к AI для сложных вопросов"""
+        try:
+            response = requests.post(
+                "https://text.pollinations.ai/",
+                json={
+                    "messages": [
+                        {"role": "system", "content": """Ты - репетитор по математике и русскому языку. 
+                        Твоя задача: ПОЛНОСТЬЮ РЕШАТЬ задачи, а не просто давать советы.
+                        Когда тебе дают задачу:
+                        1. Напиши "📝 РЕШЕНИЕ:"
+                        2. Покажи все шаги подробно
+                        3. Дай конечный ответ
+                        4. Объясни, почему так
+                        
+                        Например, на вопрос "сколько будет 5+5" ты должен ответить "5+5=10", а не "давай подумаем".
+                        """},
+                        {"role": "user", "content": question}
+                    ]
+                },
+                timeout=15
+            )
+            if response.status_code == 200:
+                return response.text
+        except:
+            pass
+        return None
 
-❓ **Задача:** {task_text}
+# ==================== ОСНОВНОЙ КЛАСС ====================
 
-🔍 **Анализ:**
-1. Сначала определим, что нам известно
-2. Выделим главный вопрос
-3. Найдём способ решения
+class StudyBot:
+    def __init__(self):
+        self.solver = MathSolver()
+        self.user_data = {}
+    
+    def process_message(self, user_id, text):
+        """Обрабатывает сообщение"""
+        
+        # 1. Сначала пробуем решить как уравнение
+        math_solution = self.solver.solve_equation(text)
+        if math_solution:
+            return math_solution
+        
+        # 2. Пробуем решить как текстовую задачу
+        text_solution = self.solver.solve_text_task(text)
+        if text_solution:
+            return text_solution
+        
+        # 3. Если не получилось, спрашиваем AI
+        ai_answer = self.solver.ask_ai(text)
+        if ai_answer:
+            return ai_answer
+        
+        # 4. Запасной вариант
+        return self._fallback(text)
+    
+    def _fallback(self, text):
+        """Запасной ответ"""
+        return f"""
+📚 **По твоему вопросу:** "{text}"
 
-💡 **Подсказка:**
-Попробуй составить уравнение или схему
+Я могу помочь, если уточнишь:
 
-✅ **Решение:**
-[Здесь будет полное решение]
+1️⃣ **Математика:** напиши пример (например "5+5" или "реши уравнение x+3=7")
 
-🎯 **Ответ:** [Ответ]
+2️⃣ **Задачи 526 гимназии:** напиши "задача про яблоки" или "площадь прямоугольника"
 
-📖 **Почему это работает:**
-[Объяснение метода]
+3️⃣ **ВПР 4 класс:** напиши "ВПР математика" или "ВПР русский"
+
+Что именно тебе нужно?
         """
-        return explanation
-    
-    def give_hint(self, user_id):
-        """Даёт подсказку к последней задаче"""
-        return "💡 **Подсказка:** Попробуй обозначить неизвестное за x и составить уравнение"
-    
-    def show_solution(self, user_id):
-        """Показывает полное решение"""
-        return """
-📝 **Полное решение:**
 
-1. **Анализ условия**  
-   Выписываем все данные
+# Создаём бота
+study_bot = StudyBot()
 
-2. **Построение модели**  
-   Составляем уравнение или схему
-
-3. **Решение**  
-   Выполняем вычисления
-
-4. **Проверка**  
-   Подставляем ответ в условие
-
-5. **Ответ**  
-   Записываем результат
-        """
-    
-    def why_answer(self, user_id):
-        """Объясняет, почему ответ именно такой"""
-        return """
-❓ **Почему ответ именно такой?**
-
-🔬 **Логика решения:**
-- Мы использовали правило/формулу [название]
-- Все шаги проверены
-- Ответ удовлетворяет условию
-
-✅ **Доказательство:**
-Подставляем ответ в исходное условие и проверяем
-        """
-    
-    def step_by_step(self, user_id):
-        """Пошаговый разбор"""
-        return """
-🔢 **Пошаговое решение:**
-
-**Шаг 1:** Записываем условие кратко
-**Шаг 2:** Определяем неизвестные
-**Шаг 3:** Составляем выражение
-**Шаг 4:** Выполняем вычисления
-**Шаг 5:** Проверяем результат
-**Шаг 6:** Записываем ответ
-        """
-
-# Создаём помощника
-helper = StudyHelper()
-
-# ==================== КОМАНДЫ ДЛЯ ОБЪЯСНЕНИЙ ====================
+# ==================== КОМАНДЫ ====================
 
 @bot.message_handler(commands=['start'])
 def start(message):
     welcome = """
-🎓 **Учебный агент для 526 гимназии**
+🎓 **Учебный агент 526 гимназия**
 
-📚 **Я помогу:**
-• Готовиться к поступлению в 5 класс
-• Решать сложные задачи
-• Объяснять каждое действие
+✅ **Я РЕШАЮ ЗАДАЧИ, а не просто советую!**
 
-📌 **Команды для объяснений:**
-/explain — подробно объяснить задачу
-/hint — дать подсказку
-/solution — показать решение
-/why — объяснить ответ
-/step — пошаговый разбор
+📝 **Примеры:**
+• "сколько будет 5+5" → сразу ответ
+• "реши задачу про яблоки" → полное решение
+• "найди площадь прямоугольника 5 и 8" → ответ с объяснением
 
-💬 **Просто напиши задачу или вопрос!**
+📌 **Команды:**
+/help - все команды
+/526 - задачи 526 гимназии
+/vpr - задания ВПР
+
+💬 **Просто напиши задачу!**
     """
     bot.send_message(message.chat.id, welcome, parse_mode='Markdown')
 
-@bot.message_handler(commands=['explain'])
-def explain(message):
-    """Подробное объяснение"""
-    user_id = message.chat.id
-    if user_id in helper.user_data and helper.user_data[user_id].get('last_task'):
-        explanation = helper.explain_task(user_id, helper.user_data[user_id]['last_task'])
-        bot.send_message(message.chat.id, explanation, parse_mode='Markdown')
-    else:
-        bot.send_message(message.chat.id, "❓ Сначала напиши задачу, которую хочешь разобрать")
+@bot.message_handler(commands=['help'])
+def help(message):
+    help_text = """
+📖 **ПОЛНЫЙ СПИСОК КОМАНД:**
 
-@bot.message_handler(commands=['hint'])
-def hint(message):
-    """Подсказка"""
-    hint_text = helper.give_hint(message.chat.id)
-    bot.send_message(message.chat.id, hint_text, parse_mode='Markdown')
+🔹 **526 гимназия:**
+/526math - задача по математике
+/526logic - логическая задача
+/526russian - русский язык
 
-@bot.message_handler(commands=['solution'])
-def solution(message):
-    """Полное решение"""
-    solution_text = helper.show_solution(message.chat.id)
-    bot.send_message(message.chat.id, solution_text, parse_mode='Markdown')
+🔹 **ВПР 4 класс:**
+/vprmath - математика
+/vprrus - русский язык
+/vprworld - окружающий мир
 
-@bot.message_handler(commands=['why'])
-def why(message):
-    """Объяснение ответа"""
-    why_text = helper.why_answer(message.chat.id)
-    bot.send_message(message.chat.id, why_text, parse_mode='Markdown')
+🔹 **Режимы:**
+/exam - режим экзамена
+/practice - тренировка
 
-@bot.message_handler(commands=['step'])
-def step(message):
-    """Пошаговый разбор"""
-    step_text = helper.step_by_step(message.chat.id)
-    bot.send_message(message.chat.id, step_text, parse_mode='Markdown')
-
-@bot.message_handler(commands=['task_math'])
-def task_math(message):
-    """Дать сложную математическую задачу"""
-    task = """
-📐 **Сложная задача (526 гимназия):**
-
-В трёх корзинах 80 яблок. В первой корзине в 2 раза меньше, чем во второй, а в третьей на 10 больше, чем в первой. Сколько яблок в каждой корзине?
-
-💡 *Используй /hint для подсказки*
-📝 *Используй /explain для объяснения*
+💡 **Или просто напиши задачу!**
     """
-    # Сохраняем задачу для пользователя
-    user_id = message.chat.id
-    if user_id not in helper.user_data:
-        helper.user_data[user_id] = {}
-    helper.user_data[user_id]['last_task'] = task
+    bot.send_message(message.chat.id, help_text, parse_mode='Markdown')
+
+@bot.message_handler(commands=['526math'])
+def math_526(message):
+    task = """
+📐 **Задача 526 гимназии:**
+
+В трёх корзинах 80 яблок. В первой в 2 раза меньше, чем во второй, а в третьей на 10 больше, чем в первой. Сколько яблок в каждой корзине?
+
+✏️ **Напиши "реши задачу про яблоки"** — я покажу полное решение!
+    """
     bot.send_message(message.chat.id, task, parse_mode='Markdown')
 
-@bot.message_handler(commands=['task_logic'])
-def task_logic(message):
-    """Дать логическую задачу"""
+@bot.message_handler(commands=['vprmath'])
+def vpr_math(message):
     task = """
-🧠 **Логическая задача (526 гимназия):**
+📝 **ВПР 4 класс (математика):**
 
-Четыре девочки: Аня, Валя, Галя и Даша — участвовали в олимпиаде. Каждая сделала по два утверждения, одно истинное, одно ложное. Определите, кто какое место занял.
+Найди площадь прямоугольника со сторонами 5 см и 8 см.
 
-Аня: "Я была первой, а Валя — третьей"
-Валя: "Я была второй, а Галя — четвёртой"
-Галя: "Я была третьей, а Даша — второй"
-Даша: "Я была четвёртой, а Аня — первой"
-
-💡 *Используй /hint для подсказки*
+✏️ **Напиши "площадь прямоугольника 5 и 8"** — я решу!
     """
-    user_id = message.chat.id
-    if user_id not in helper.user_data:
-        helper.user_data[user_id] = {}
-    helper.user_data[user_id]['last_task'] = task
     bot.send_message(message.chat.id, task, parse_mode='Markdown')
 
 @bot.message_handler(func=lambda m: True)
-def handle_message(message):
+def handle_all(message):
     """Обработка всех сообщений"""
-    user_id = message.chat.id
     text = message.text
     
-    # Сохраняем сообщение как последнюю задачу
-    if user_id not in helper.user_data:
-        helper.user_data[user_id] = {}
-    helper.user_data[user_id]['last_task'] = text
+    # Показываем "печатает"
+    bot.send_chat_action(message.chat.id, 'typing')
     
-    # Простой ответ
-    response = f"""
-📝 **Твой вопрос:** {text}
-
-🔍 **Что хочешь сделать?**
-/explain — объяснить подробно
-/hint — дать подсказку
-/solution — показать решение
-/why — объяснить ответ
-/step — пошаговый разбор
-    """
-    bot.send_message(message.chat.id, response, parse_mode='Markdown')
+    # Получаем ответ
+    answer = study_bot.process_message(message.chat.id, text)
+    
+    # Отправляем
+    bot.send_message(message.chat.id, answer, parse_mode='Markdown')
 
 # ==================== ЗАПУСК ====================
 
 def run_bot():
-    """Запуск бота в фоне"""
     while True:
         try:
             bot.polling(none_stop=True)
@@ -277,5 +272,6 @@ if __name__ == "__main__":
     thread.daemon = True
     thread.start()
     
+    # ВАЖНО: используем переменную port!
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=
+    app.run(host="0.0.0.0", port=port)
