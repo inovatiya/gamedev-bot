@@ -7,8 +7,11 @@ import random
 import re
 import schedule
 from datetime import datetime
+import requests
+import json
 
 TOKEN = "8629154850:AAG4xSPM2VSQ8zmS7ysij8Jgg3Yvn9VIFKw"
+GEMINI_KEY = "AIzaSyD1XxU76eOijI7Rr80W2Qj_pU6nwVLd5cQ"  # Бесплатный ключ Gemini
 YOUR_CHAT_ID = 8629154850  # Твой Telegram ID
 
 bot = telebot.TeleBot(TOKEN)
@@ -18,7 +21,35 @@ app = Flask(__name__)
 user_data = {}
 user_last_task = {}
 user_started = {}
-user_conversation = {}  # Для отслеживания состояния диалога
+user_conversation = {}
+user_ai_mode = {}  # Режим ИИ (для "поболтать")
+
+# ==================== ФУНКЦИЯ ДЛЯ GEMINI AI ====================
+
+def ask_gemini(prompt):
+    """Отправляет запрос к Gemini AI и получает ответ"""
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_KEY}"
+        
+        # Добавляем контекст, чтобы Gemini знал, что он учебный помощник
+        full_prompt = f"Ты дружелюбный помощник для подготовки к 526 гимназии. Отвечай на вопросы просто и понятно, как друг. Вот вопрос: {prompt}"
+        
+        data = {
+            "contents": [{
+                "parts": [{"text": full_prompt}]
+            }]
+        }
+        
+        response = requests.post(url, json=data)
+        result = response.json()
+        
+        if 'candidates' in result and len(result['candidates']) > 0:
+            return result['candidates'][0]['content']['parts'][0]['text']
+        else:
+            return "🤔 Не могу сейчас ответить. Попробуй ещё раз."
+    except Exception as e:
+        print(f"Ошибка Gemini: {e}")
+        return "😕 Что-то пошло не так. Давай просто поболтаем по-человечески! Как дела?"
 
 # ==================== ЕЖЕДНЕВНОЕ НАПОМИНАНИЕ ====================
 
@@ -43,7 +74,7 @@ def run_schedule():
         schedule.run_pending()
         time.sleep(30)
 
-# ==================== МАТЕМАТИКА 526 (50 ЗАДАЧ ПРОШЛЫХ ЛЕТ) ====================
+# ==================== МАТЕМАТИКА 526 (50 ЗАДАЧ) ====================
 math_526 = [
     {"task": "📐 526 математика: Периметр прямоугольника 48 см. Ширина в 3 раза меньше длины. Найди площадь.", "answer": "108"},
     {"task": "📐 526 математика: Сумма возрастов мамы и сына 48 лет. Мама старше сына в 3 раза. Сколько лет сыну?", "answer": "12"},
@@ -97,7 +128,7 @@ math_526 = [
     {"task": "📐 526 математика: В вазе 15 яблок и 10 груш. Сколько всего фруктов?", "answer": "25"}
 ]
 
-# ==================== РУССКИЙ 526 (50 ЗАДАНИЙ ПРОШЛЫХ ЛЕТ) ====================
+# ==================== РУССКИЙ 526 (50 ЗАДАНИЙ) ====================
 russian_526 = [
     {"task": "📝 526 русский: Вставь пропущенные буквы: _зык, _рбуз, _сина, _ицо.", "answer": "я а о л"},
     {"task": "📝 526 русский: Вставь буквы: в_р_бей, с_рока, к_рова, с_бака.", "answer": "о о о о о"},
@@ -151,7 +182,7 @@ russian_526 = [
     {"task": "📝 526 русский: Поставь ударение в слове 'красивее'. (напиши букву под ударением)", "answer": "и"}
 ]
 
-# ==================== АНГЛИЙСКИЙ 526 (50 ЗАДАНИЙ ПРОШЛЫХ ЛЕТ) ====================
+# ==================== АНГЛИЙСКИЙ 526 (50 ЗАДАНИЙ) ====================
 english_526 = [
     {"task": "🔤 526 английский: Переведи на английский: собака.", "answer": "dog"},
     {"task": "🔤 526 английский: Переведи на английский: кошка.", "answer": "cat"},
@@ -266,16 +297,17 @@ def chat_response(text, user_id):
         user_conversation[user_id] = 'normal'
         return "😊 Рад это слышать! Чем хочешь заняться? Могу дать задачку или просто поболтать."
     
-    # Предложение поболтать
-    if any(word in text_lower for word in ['поболтать', 'поговорить', 'chat', 'talk']):
-        return "💬 Давай поболтаем! О чём хочешь поговорить? Могу рассказать про учёбу, про 526 гимназию или просто поддержать разговор."
+    # Предложение поболтать — ВКЛЮЧАЕМ РЕЖИМ ИИ
+    if any(word in text_lower for word in ['поболтать', 'поговорить', 'chat', 'talk', 'давай поболтаем']):
+        user_ai_mode[user_id] = True
+        return "💬 Отлично! Давай поболтаем. Я теперь могу говорить на любые темы — про игры, фильмы, учёбу, жизнь. О чём хочешь поговорить?"
     
-    # Вопросы про бота
+    # Вопросы про бота (без ИИ, чтобы не тратить лишние запросы)
     if 'кто ты' in text_lower:
-        return "🤖 Я твой учебный помощник! Помогаю готовиться к поступлению в 526 гимназию. У меня есть задачи по математике, русскому, английскому и логике."
+        return "🤖 Я твой учебный помощник с искусственным интеллектом! Могу помогать с учёбой и просто общаться."
     
     if 'что ты умеешь' in text_lower:
-        return "📚 Я умею:\n- Давать задачи из тестов 526 гимназии\n- Проверять ответы\n- Решать примеры (5+5)\n- Напоминать о занятиях в 16:00\n- И просто общаться!"
+        return "📚 Я умею:\n- Давать задачи из тестов 526 гимназии\n- Проверять ответы\n- Решать примеры (5+5)\n- Напоминать о занятиях в 16:00\n- И просто общаться на любые темы!"
     
     # Вопросы про 526 гимназию
     if '526' in text_lower or 'гимназия' in text_lower:
@@ -330,13 +362,9 @@ def check_answer(user_answer, correct_answer):
 def start(message):
     user_id = message.chat.id
     
-    if user_id not in user_started:
-        user_started[user_id] = True
-        bot.send_message(user_id, "👋 Привет! Я твой учебный помощник для подготовки к 526 гимназии. Расскажи немного о себе: как тебя зовут, сколько тебе лет, чем любишь заниматься?")
-    else:
-        if user_id in user_data and 'name' in user_data[user_id]:
-            name = user_data[user_id]['name']
-            welcome = f"""
+    if user_id in user_data and 'name' in user_data[user_id]:
+        name = user_data[user_id]['name']
+        welcome = f"""
 👋 С возвращением, {name}!
 
 📌 **Команды:**
@@ -345,17 +373,37 @@ def start(message):
 /english526 — английский 526
 /logic — логика
 /task — случайная задача
+/reset — сбросить информацию о себе
 
 ✅ **Как отвечать:**  
 Напиши **"Ответ: твой ответ"** — я проверю!
 
 🧮 **Примеры:** 5+5, 15*3, 100/4 — сразу ответ
 
-💬 **Можно просто поговорить:** "привет", "как дела", "поболтаем"
-            """
-            bot.send_message(user_id, welcome)
-        else:
-            bot.send_message(user_id, "👋 Привет! Расскажи немного о себе: как тебя зовут, сколько тебе лет, чем любишь заниматься?")
+💬 **Общение:** просто пиши, а если хочешь поболтать — скажи "давай поболтаем"
+        """
+        bot.send_message(user_id, welcome)
+    else:
+        bot.send_message(user_id, "👋 Привет! Расскажи немного о себе: как тебя зовут, сколько тебе лет, чем любишь заниматься?")
+        user_started[user_id] = True
+
+@bot.message_handler(commands=['reset'])
+def reset(message):
+    user_id = message.chat.id
+    
+    # Полная очистка всех данных пользователя
+    if user_id in user_data:
+        del user_data[user_id]
+    if user_id in user_last_task:
+        del user_last_task[user_id]
+    if user_id in user_started:
+        del user_started[user_id]
+    if user_id in user_conversation:
+        del user_conversation[user_id]
+    if user_id in user_ai_mode:
+        del user_ai_mode[user_id]
+    
+    bot.send_message(user_id, "🔄 Вся информация о тебе сброшена. Теперь можешь рассказать о себе заново. Напиши что-нибудь :)")
 
 @bot.message_handler(commands=['math526'])
 def math526(message):
@@ -395,8 +443,7 @@ def handle_all(message):
     text = message.text.strip()
     
     # Если пользователь ещё не рассказал о себе
-    if user_id not in user_started:
-        user_started[user_id] = True
+    if user_id in user_started and user_id not in user_data:
         user_data[user_id] = {'bio': text}
         
         # Пытаемся извлечь имя из сообщения
@@ -430,7 +477,15 @@ def handle_all(message):
             bot.send_message(user_id, "❓ Сначала получи задачу (например /math526)")
         return
     
-    # Если это не пример и не ответ — просто общаемся
+    # Если включён режим ИИ (после "давай поболтаем")
+    if user_id in user_ai_mode and user_ai_mode[user_id]:
+        # Отправляем запрос в Gemini
+        bot.send_chat_action(user_id, 'typing')
+        ai_response = ask_gemini(text)
+        bot.send_message(user_id, ai_response)
+        return
+    
+    # Если это не пример и не ответ — просто общаемся (без ИИ)
     response = chat_response(text, user_id)
     if response:
         bot.send_message(user_id, response)
@@ -438,10 +493,11 @@ def handle_all(message):
         # Если не знаем, что ответить — предлагаем что-то
         responses = [
             "📚 Хочешь решить задачку? Напиши /task",
-            "💬 О чём поговорим?",
+            "💬 Можем поболтать! Скажи 'давай поболтаем'",
             "🤔 Расскажи, что у тебя нового?",
             "📐 Могу дать задачу по математике 526 гимназии",
-            "🔤 Английский подтянуть? Напиши /english526"
+            "🔤 Английский подтянуть? Напиши /english526",
+            "🎮 А если хочешь просто поговорить, скажи 'давай поболтаем' — я включу режим ИИ!"
         ]
         bot.send_message(user_id, random.choice(responses))
 
