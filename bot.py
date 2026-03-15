@@ -312,4 +312,138 @@ def start(message):
 /reset — сбросить информацию о себе
 
 ✅ **Как отвечать:**  
-Напиши **"Ответ: твой ответ
+Напиши **"Ответ: твой ответ"** — я проверю!
+
+🧮 **Примеры:** 5+5, 15*3, 100/4 — сразу ответ
+
+🔔 **Напоминание:** каждый день в 16:00
+        """
+        bot.send_message(user_id, welcome)
+    else:
+        # Если данных нет — просим рассказать о себе
+        bot.send_message(user_id, "👋 Привет! Расскажи немного о себе: как тебя зовут, сколько тебе лет, чем любишь заниматься?")
+        user_started[user_id] = True
+
+@bot.message_handler(commands=['reset'])
+def reset(message):
+    user_id = message.chat.id
+    
+    if user_id in user_data:
+        del user_data[user_id]
+    if user_id in user_last_task:
+        del user_last_task[user_id]
+    if user_id in user_started:
+        del user_started[user_id]
+    
+    bot.send_message(user_id, "🔄 Вся информация о тебе сброшена. Теперь можешь рассказать о себе заново. Напиши что-нибудь :)")
+
+@bot.message_handler(commands=['math526'])
+def math526(message):
+    task = random.choice(math_526)
+    user_last_task[message.chat.id] = task
+    bot.send_message(message.chat.id, task["task"])
+
+@bot.message_handler(commands=['russian526'])
+def russian526(message):
+    task = random.choice(russian_526)
+    user_last_task[message.chat.id] = task
+    bot.send_message(message.chat.id, task["task"])
+
+@bot.message_handler(commands=['english526'])
+def english526(message):
+    task = random.choice(english_526)
+    user_last_task[message.chat.id] = task
+    bot.send_message(message.chat.id, task["task"])
+
+@bot.message_handler(commands=['logic'])
+def logic_cmd(message):
+    task = random.choice(logic)
+    user_last_task[message.chat.id] = task
+    bot.send_message(message.chat.id, task["task"])
+
+@bot.message_handler(commands=['task'])
+def task_cmd(message):
+    task = random.choice(all_tasks)
+    user_last_task[message.chat.id] = task
+    bot.send_message(message.chat.id, task["task"])
+
+# ==================== ОБРАБОТКА ВСЕХ СООБЩЕНИЙ ====================
+
+@bot.message_handler(func=lambda m: True)
+def handle_all(message):
+    user_id = message.chat.id
+    text = message.text.strip()
+    
+    # Добавляем пользователя в список для напоминаний
+    user_chat_ids.add(user_id)
+    
+    # Если пользователь начал рассказ о себе (user_started есть, но данных ещё нет)
+    if user_id in user_started and user_id not in user_data:
+        user_data[user_id] = {'bio': text}
+        
+        words = text.split()
+        if len(words) > 0:
+            user_data[user_id]['name'] = words[0]
+        
+        bot.send_message(user_id, "✅ Спасибо! Теперь я знаю о тебе. Буду обращаться по имени в напоминаниях. А теперь давай заниматься! Напиши /start чтобы увидеть команды.")
+        return
+    
+    # Пропускаем команды (они уже обработаны выше)
+    if text.startswith('/'):
+        return
+    
+    # Проверяем математические примеры
+    math_result = solve_math_example(text)
+    if math_result:
+        bot.send_message(user_id, math_result)
+        return
+    
+    # Проверяем ответы на задачи
+    if text.lower().startswith("ответ:"):
+        user_answer = text[6:].strip()
+        
+        if user_id in user_last_task:
+            task = user_last_task[user_id]
+            result = check_answer(user_answer, task["answer"])
+            bot.send_message(user_id, result)
+        else:
+            bot.send_message(user_id, "❓ Сначала получи задачу (например /math526)")
+        return
+    
+    # Простое общение
+    response = chat_response(text, user_id)
+    if response:
+        bot.send_message(user_id, response)
+    else:
+        # Если ничего не подошло — молчим
+        pass
+
+@bot.message_handler(content_types=['photo'])
+def handle_photo(message):
+    bot.reply_to(message, "📸 Фото получено. Напиши ответ текстом: **Ответ: ...**")
+
+# ==================== ЗАПУСК ====================
+
+def run_bot():
+    while True:
+        try:
+            bot.polling()
+        except Exception as e:
+            print(f"Ошибка: {e}")
+            time.sleep(5)
+
+@app.route('/')
+def home():
+    return "Bot is running"
+
+if __name__ == "__main__":
+    schedule_thread = threading.Thread(target=run_schedule)
+    schedule_thread.daemon = True
+    schedule_thread.start()
+    
+    thread = threading.Thread(target=run_bot)
+    thread.daemon = True
+    thread.start()
+    
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
