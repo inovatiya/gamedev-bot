@@ -17,15 +17,13 @@ app = Flask(__name__)
 user_data = {}
 user_last_task = {}
 user_started = {}
-user_conversation = {}
 user_chat_ids = set()
 
-# ==================== ЕЖЕДНЕВНОЕ НАПОМИНАНИЕ ====================
+# ==================== НАПОМИНАНИЕ В 16:00 ====================
 
 def send_reminder_to_all():
     """Отправляет напоминание всем пользователям в 16:00 МСК"""
-    print(f"Отправка напоминаний в {datetime.now()}, пользователей: {len(user_chat_ids)}")
-    
+    print(f"📨 Отправка напоминаний, пользователей: {len(user_chat_ids)}")
     for user_id in user_chat_ids:
         try:
             if user_id in user_data and 'name' in user_data[user_id]:
@@ -34,8 +32,8 @@ def send_reminder_to_all():
             else:
                 bot.send_message(user_id, "👋 Привет! Пора позаниматься!")
             time.sleep(0.3)
-        except:
-            pass
+        except Exception as e:
+            print(f"Ошибка отправки {user_id}: {e}")
 
 def run_schedule():
     schedule.every().day.at("16:00").do(send_reminder_to_all)
@@ -242,9 +240,10 @@ logic = [
 # Объединяем все задачи
 all_tasks = math_526 + russian_526 + english_526 + logic
 
-# ==================== ФУНКЦИИ ====================
+# ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
 
 def solve_math_example(text):
+    """Решает простые математические примеры"""
     match = re.search(r'(\d+)\s*([\+\-\*\/])\s*(\d+)', text)
     if match:
         a = int(match.group(1))
@@ -264,6 +263,7 @@ def solve_math_example(text):
     return None
 
 def check_answer(user_answer, correct_answer):
+    """Проверяет ответ пользователя"""
     user_clean = user_answer.lower().strip().replace(" ", "").replace(",", ".")
     correct_clean = str(correct_answer).lower().strip().replace(" ", "").replace(",", ".")
     
@@ -273,6 +273,7 @@ def check_answer(user_answer, correct_answer):
         return f"❌ **Неправильно.** Правильный ответ: {correct_answer}"
 
 def chat_response(text, user_id):
+    """Простые ответы на приветствия"""
     text_lower = text.lower()
     
     if any(word in text_lower for word in ['привет', 'здравствуй', 'hello', 'hi']):
@@ -285,17 +286,8 @@ def chat_response(text, user_id):
     if 'как дела' in text_lower:
         return "✅ У меня всё отлично! А у тебя как?"
     
-    if 'поболтать' in text_lower or 'поговорить' in text_lower:
-        return "💬 К сожалению, сейчас я работаю в учебном режиме без ИИ. Но могу дать задачку! Напиши /task"
-    
-    if 'кто ты' in text_lower:
-        return "🤖 Я твой учебный помощник для подготовки к 526 гимназии!"
-    
-    if 'что ты умеешь' in text_lower:
-        return "📚 Я умею:\n- Давать задачи из тестов 526 гимназии\n- Проверять ответы\n- Решать примеры (5+5)\n- Напоминать о занятиях в 16:00"
-    
     if 'спасибо' in text_lower:
-        return "🙏 Пожалуйста!"
+        return "🙏 Пожалуйста! Обращайся ещё."
     
     if 'пока' in text_lower or 'до свидания' in text_lower:
         return "👋 Пока! Буду ждать тебя завтра в 16:00!"
@@ -315,10 +307,10 @@ def start(message):
 👋 С возвращением, {name}!
 
 📌 **Команды:**
-/math526 — математика 526
-/russian526 — русский язык 526
-/english526 — английский 526
-/logic — логика
+/math526 — математика 526 (50 задач)
+/russian526 — русский язык 526 (50)
+/english526 — английский 526 (50)
+/logic — логика (30)
 /task — случайная задача
 /reset — сбросить информацию о себе
 
@@ -326,6 +318,8 @@ def start(message):
 Напиши **"Ответ: твой ответ"** — я проверю!
 
 🧮 **Примеры:** 5+5, 15*3, 100/4 — сразу ответ
+
+🔔 **Напоминание:** каждый день в 16:00
         """
         bot.send_message(user_id, welcome)
     else:
@@ -396,14 +390,17 @@ def handle_all(message):
         bot.send_message(user_id, "✅ Спасибо! Теперь я знаю о тебе. Буду обращаться по имени в напоминаниях. А теперь давай заниматься! Напиши /start чтобы увидеть команды.")
         return
     
+    # Пропускаем команды (они уже обработаны выше)
     if text.startswith('/'):
         return
     
+    # Проверяем математические примеры
     math_result = solve_math_example(text)
     if math_result:
         bot.send_message(user_id, math_result)
         return
     
+    # Проверяем ответы на задачи
     if text.lower().startswith("ответ:"):
         user_answer = text[6:].strip()
         
@@ -415,17 +412,13 @@ def handle_all(message):
             bot.send_message(user_id, "❓ Сначала получи задачу (например /math526)")
         return
     
+    # Простое общение
     response = chat_response(text, user_id)
     if response:
         bot.send_message(user_id, response)
     else:
-        responses = [
-            "📚 Хочешь решить задачку? Напиши /task",
-            "💬 Можем поболтать, но сейчас я в учебном режиме. Хочешь задачку?",
-            "📐 Могу дать задачу по математике 526 гимназии",
-            "🔤 Английский подтянуть? Напиши /english526"
-        ]
-        bot.send_message(user_id, random.choice(responses))
+        # Если ничего не подошло — молчим (не спамим)
+        pass
 
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
