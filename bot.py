@@ -7,12 +7,8 @@ import random
 import re
 import schedule
 from datetime import datetime
-import requests
-import json
 
 TOKEN = "8629154850:AAG4xSPM2VSQ8zmS7ysij8Jgg3Yvn9VIFKw"
-GEMINI_KEY = "AIzaSyD1XxU76eOijI7Rr80W2Qj_pU6nwVLd5cQ"  # Бесплатный ключ Gemini
-YOUR_CHAT_ID = 8629154850  # Твой Telegram ID
 
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
@@ -22,54 +18,27 @@ user_data = {}
 user_last_task = {}
 user_started = {}
 user_conversation = {}
-user_ai_mode = {}  # Режим ИИ (для "поболтать")
-
-# ==================== ФУНКЦИЯ ДЛЯ GEMINI AI ====================
-
-def ask_gemini(prompt):
-    """Отправляет запрос к Gemini AI и получает ответ"""
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_KEY}"
-        
-        # Добавляем контекст, чтобы Gemini знал, что он учебный помощник
-        full_prompt = f"Ты дружелюбный помощник для подготовки к 526 гимназии. Отвечай на вопросы просто и понятно, как друг. Вот вопрос: {prompt}"
-        
-        data = {
-            "contents": [{
-                "parts": [{"text": full_prompt}]
-            }]
-        }
-        
-        response = requests.post(url, json=data)
-        result = response.json()
-        
-        if 'candidates' in result and len(result['candidates']) > 0:
-            return result['candidates'][0]['content']['parts'][0]['text']
-        else:
-            return "🤔 Не могу сейчас ответить. Попробуй ещё раз."
-    except Exception as e:
-        print(f"Ошибка Gemini: {e}")
-        return "😕 Что-то пошло не так. Давай просто поболтаем по-человечески! Как дела?"
+user_chat_ids = set()
 
 # ==================== ЕЖЕДНЕВНОЕ НАПОМИНАНИЕ ====================
 
-def send_reminder():
-    """Отправляет напоминание в 16:00 МСК"""
-    try:
-        user_id = YOUR_CHAT_ID
-        if user_id in user_data and 'name' in user_data[user_id]:
-            name = user_data[user_id]['name']
-            bot.send_message(user_id, f"👋 Привет, {name}, пора позаниматься!")
-        else:
-            bot.send_message(user_id, "👋 Привет! Пора позаниматься!")
-        print(f"Напоминание отправлено в {datetime.now()}")
-    except Exception as e:
-        print(f"Ошибка при отправке напоминания: {e}")
+def send_reminder_to_all():
+    """Отправляет напоминание всем пользователям в 16:00 МСК"""
+    print(f"Отправка напоминаний в {datetime.now()}, пользователей: {len(user_chat_ids)}")
+    
+    for user_id in user_chat_ids:
+        try:
+            if user_id in user_data and 'name' in user_data[user_id]:
+                name = user_data[user_id]['name']
+                bot.send_message(user_id, f"👋 Привет, {name}, пора позаниматься!")
+            else:
+                bot.send_message(user_id, "👋 Привет! Пора позаниматься!")
+            time.sleep(0.3)
+        except:
+            pass
 
 def run_schedule():
-    """Запускает планировщик в отдельном потоке"""
-    schedule.every().day.at("16:00").do(send_reminder)
-    
+    schedule.every().day.at("16:00").do(send_reminder_to_all)
     while True:
         schedule.run_pending()
         time.sleep(30)
@@ -270,64 +239,12 @@ logic = [
     {"task": "🧠 Логика: Что легче: 1 кг пуха или 1 кг гвоздей?", "answer": "одинаково"}
 ]
 
-# Объединяем все задачи для случайного выбора
+# Объединяем все задачи
 all_tasks = math_526 + russian_526 + english_526 + logic
 
-# ==================== ФУНКЦИИ ДЛЯ РАЗГОВОРА ====================
-
-def chat_response(text, user_id):
-    """Отвечает на сообщения, поддерживая разговор"""
-    text_lower = text.lower()
-    
-    # Приветствие
-    if any(word in text_lower for word in ['привет', 'здравствуй', 'hello', 'hi', 'здарова']):
-        if user_id in user_data and 'name' in user_data[user_id]:
-            name = user_data[user_id]['name']
-            return f"👋 Привет, {name}! Как твои дела?"
-        else:
-            return "👋 Привет! Я твой помощник для подготовки к 526 гимназии. Как твои дела?"
-    
-    # Вопрос о делах
-    if 'как дела' in text_lower:
-        user_conversation[user_id] = 'asked_how_are_you'
-        return "✅ У меня всё отлично! А у тебя как?"
-    
-    # Ответ на "как дела" (любой ответ)
-    if user_id in user_conversation and user_conversation[user_id] == 'asked_how_are_you':
-        user_conversation[user_id] = 'normal'
-        return "😊 Рад это слышать! Чем хочешь заняться? Могу дать задачку или просто поболтать."
-    
-    # Предложение поболтать — ВКЛЮЧАЕМ РЕЖИМ ИИ
-    if any(word in text_lower for word in ['поболтать', 'поговорить', 'chat', 'talk', 'давай поболтаем']):
-        user_ai_mode[user_id] = True
-        return "💬 Отлично! Давай поболтаем. Я теперь могу говорить на любые темы — про игры, фильмы, учёбу, жизнь. О чём хочешь поговорить?"
-    
-    # Вопросы про бота (без ИИ, чтобы не тратить лишние запросы)
-    if 'кто ты' in text_lower:
-        return "🤖 Я твой учебный помощник с искусственным интеллектом! Могу помогать с учёбой и просто общаться."
-    
-    if 'что ты умеешь' in text_lower:
-        return "📚 Я умею:\n- Давать задачи из тестов 526 гимназии\n- Проверять ответы\n- Решать примеры (5+5)\n- Напоминать о занятиях в 16:00\n- И просто общаться на любые темы!"
-    
-    # Вопросы про 526 гимназию
-    if '526' in text_lower or 'гимназия' in text_lower:
-        return "🏫 Гимназия №526 находится в Московском районе Санкт-Петербурга. Я помогаю готовиться к вступительным тестам в 5 класс. Могу дать задачу по математике, русскому или английскому!"
-    
-    # Благодарность
-    if any(word in text_lower for word in ['спасибо', 'благодарю', 'thx']):
-        return "🙏 Пожалуйста! Обращайся ещё. Хочешь задачку?"
-    
-    # Прощание
-    if any(word in text_lower for word in ['пока', 'до свидания', 'bye', 'до встречи']):
-        return "👋 Пока! Буду ждать тебя завтра в 16:00 для занятий!"
-    
-    # Если ничего не подошло — возвращаем None, чтобы обработать дальше
-    return None
-
-# ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
+# ==================== ФУНКЦИИ ====================
 
 def solve_math_example(text):
-    """Решает простые математические примеры — сразу ответ"""
     match = re.search(r'(\d+)\s*([\+\-\*\/])\s*(\d+)', text)
     if match:
         a = int(match.group(1))
@@ -347,7 +264,6 @@ def solve_math_example(text):
     return None
 
 def check_answer(user_answer, correct_answer):
-    """Сравнивает ответ пользователя с правильным"""
     user_clean = user_answer.lower().strip().replace(" ", "").replace(",", ".")
     correct_clean = str(correct_answer).lower().strip().replace(" ", "").replace(",", ".")
     
@@ -356,11 +272,42 @@ def check_answer(user_answer, correct_answer):
     else:
         return f"❌ **Неправильно.** Правильный ответ: {correct_answer}"
 
+def chat_response(text, user_id):
+    text_lower = text.lower()
+    
+    if any(word in text_lower for word in ['привет', 'здравствуй', 'hello', 'hi']):
+        if user_id in user_data and 'name' in user_data[user_id]:
+            name = user_data[user_id]['name']
+            return f"👋 Привет, {name}! Как твои дела?"
+        else:
+            return "👋 Привет! Я твой помощник для подготовки к 526 гимназии. Как твои дела?"
+    
+    if 'как дела' in text_lower:
+        return "✅ У меня всё отлично! А у тебя как?"
+    
+    if 'поболтать' in text_lower or 'поговорить' in text_lower:
+        return "💬 К сожалению, сейчас я работаю в учебном режиме без ИИ. Но могу дать задачку! Напиши /task"
+    
+    if 'кто ты' in text_lower:
+        return "🤖 Я твой учебный помощник для подготовки к 526 гимназии!"
+    
+    if 'что ты умеешь' in text_lower:
+        return "📚 Я умею:\n- Давать задачи из тестов 526 гимназии\n- Проверять ответы\n- Решать примеры (5+5)\n- Напоминать о занятиях в 16:00"
+    
+    if 'спасибо' in text_lower:
+        return "🙏 Пожалуйста!"
+    
+    if 'пока' in text_lower or 'до свидания' in text_lower:
+        return "👋 Пока! Буду ждать тебя завтра в 16:00!"
+    
+    return None
+
 # ==================== КОМАНДЫ ====================
 
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.chat.id
+    user_chat_ids.add(user_id)
     
     if user_id in user_data and 'name' in user_data[user_id]:
         name = user_data[user_id]['name']
@@ -379,8 +326,6 @@ def start(message):
 Напиши **"Ответ: твой ответ"** — я проверю!
 
 🧮 **Примеры:** 5+5, 15*3, 100/4 — сразу ответ
-
-💬 **Общение:** просто пиши, а если хочешь поболтать — скажи "давай поболтаем"
         """
         bot.send_message(user_id, welcome)
     else:
@@ -391,17 +336,12 @@ def start(message):
 def reset(message):
     user_id = message.chat.id
     
-    # Полная очистка всех данных пользователя
     if user_id in user_data:
         del user_data[user_id]
     if user_id in user_last_task:
         del user_last_task[user_id]
     if user_id in user_started:
         del user_started[user_id]
-    if user_id in user_conversation:
-        del user_conversation[user_id]
-    if user_id in user_ai_mode:
-        del user_ai_mode[user_id]
     
     bot.send_message(user_id, "🔄 Вся информация о тебе сброшена. Теперь можешь рассказать о себе заново. Напиши что-нибудь :)")
 
@@ -442,30 +382,28 @@ def handle_all(message):
     user_id = message.chat.id
     text = message.text.strip()
     
+    # Добавляем пользователя в список для напоминаний
+    user_chat_ids.add(user_id)
+    
     # Если пользователь ещё не рассказал о себе
     if user_id in user_started and user_id not in user_data:
         user_data[user_id] = {'bio': text}
         
-        # Пытаемся извлечь имя из сообщения
         words = text.split()
         if len(words) > 0:
-            # Просто сохраняем первое слово как имя (для обращения)
             user_data[user_id]['name'] = words[0]
         
         bot.send_message(user_id, "✅ Спасибо! Теперь я знаю о тебе. Буду обращаться по имени в напоминаниях. А теперь давай заниматься! Напиши /start чтобы увидеть команды.")
         return
     
-    # Проверяем команды (они уже обработаны выше)
     if text.startswith('/'):
         return
     
-    # Проверяем, не математический ли это пример
     math_result = solve_math_example(text)
     if math_result:
         bot.send_message(user_id, math_result)
         return
     
-    # Проверяем, не ответ ли это на задачу
     if text.lower().startswith("ответ:"):
         user_answer = text[6:].strip()
         
@@ -477,27 +415,15 @@ def handle_all(message):
             bot.send_message(user_id, "❓ Сначала получи задачу (например /math526)")
         return
     
-    # Если включён режим ИИ (после "давай поболтаем")
-    if user_id in user_ai_mode and user_ai_mode[user_id]:
-        # Отправляем запрос в Gemini
-        bot.send_chat_action(user_id, 'typing')
-        ai_response = ask_gemini(text)
-        bot.send_message(user_id, ai_response)
-        return
-    
-    # Если это не пример и не ответ — просто общаемся (без ИИ)
     response = chat_response(text, user_id)
     if response:
         bot.send_message(user_id, response)
     else:
-        # Если не знаем, что ответить — предлагаем что-то
         responses = [
             "📚 Хочешь решить задачку? Напиши /task",
-            "💬 Можем поболтать! Скажи 'давай поболтаем'",
-            "🤔 Расскажи, что у тебя нового?",
+            "💬 Можем поболтать, но сейчас я в учебном режиме. Хочешь задачку?",
             "📐 Могу дать задачу по математике 526 гимназии",
-            "🔤 Английский подтянуть? Напиши /english526",
-            "🎮 А если хочешь просто поговорить, скажи 'давай поболтаем' — я включу режим ИИ!"
+            "🔤 Английский подтянуть? Напиши /english526"
         ]
         bot.send_message(user_id, random.choice(responses))
 
@@ -520,12 +446,10 @@ def home():
     return "Bot is running"
 
 if __name__ == "__main__":
-    # Запускаем планировщик в отдельном потоке
     schedule_thread = threading.Thread(target=run_schedule)
     schedule_thread.daemon = True
     schedule_thread.start()
     
-    # Запускаем бота
     thread = threading.Thread(target=run_bot)
     thread.daemon = True
     thread.start()
