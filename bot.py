@@ -22,7 +22,6 @@ user_chat_ids = set()
 # ==================== НАПОМИНАНИЕ В 16:00 ====================
 
 def send_reminder_to_all():
-    """Отправляет напоминание всем пользователям в 16:00 МСК"""
     print(f"📨 Отправка напоминаний, пользователей: {len(user_chat_ids)}")
     for user_id in user_chat_ids:
         try:
@@ -243,7 +242,6 @@ all_tasks = math_526 + russian_526 + english_526 + logic
 # ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
 
 def solve_math_example(text):
-    """Решает простые математические примеры"""
     match = re.search(r'(\d+)\s*([\+\-\*\/])\s*(\d+)', text)
     if match:
         a = int(match.group(1))
@@ -263,7 +261,6 @@ def solve_math_example(text):
     return None
 
 def check_answer(user_answer, correct_answer):
-    """Проверяет ответ пользователя"""
     user_clean = user_answer.lower().strip().replace(" ", "").replace(",", ".")
     correct_clean = str(correct_answer).lower().strip().replace(" ", "").replace(",", ".")
     
@@ -273,7 +270,6 @@ def check_answer(user_answer, correct_answer):
         return f"❌ **Неправильно.** Правильный ответ: {correct_answer}"
 
 def chat_response(text, user_id):
-    """Простые ответы на приветствия"""
     text_lower = text.lower()
     
     if any(word in text_lower for word in ['привет', 'здравствуй', 'hello', 'hi']):
@@ -301,6 +297,7 @@ def start(message):
     user_id = message.chat.id
     user_chat_ids.add(user_id)
     
+    # Проверяем, есть ли уже данные о пользователе
     if user_id in user_data and 'name' in user_data[user_id]:
         name = user_data[user_id]['name']
         welcome = f"""
@@ -315,137 +312,4 @@ def start(message):
 /reset — сбросить информацию о себе
 
 ✅ **Как отвечать:**  
-Напиши **"Ответ: твой ответ"** — я проверю!
-
-🧮 **Примеры:** 5+5, 15*3, 100/4 — сразу ответ
-
-🔔 **Напоминание:** каждый день в 16:00
-        """
-        bot.send_message(user_id, welcome)
-    else:
-        bot.send_message(user_id, "👋 Привет! Расскажи немного о себе: как тебя зовут, сколько тебе лет, чем любишь заниматься?")
-        user_started[user_id] = True
-
-@bot.message_handler(commands=['reset'])
-def reset(message):
-    user_id = message.chat.id
-    
-    if user_id in user_data:
-        del user_data[user_id]
-    if user_id in user_last_task:
-        del user_last_task[user_id]
-    if user_id in user_started:
-        del user_started[user_id]
-    
-    bot.send_message(user_id, "🔄 Вся информация о тебе сброшена. Теперь можешь рассказать о себе заново. Напиши что-нибудь :)")
-
-@bot.message_handler(commands=['math526'])
-def math526(message):
-    task = random.choice(math_526)
-    user_last_task[message.chat.id] = task
-    bot.send_message(message.chat.id, task["task"])
-
-@bot.message_handler(commands=['russian526'])
-def russian526(message):
-    task = random.choice(russian_526)
-    user_last_task[message.chat.id] = task
-    bot.send_message(message.chat.id, task["task"])
-
-@bot.message_handler(commands=['english526'])
-def english526(message):
-    task = random.choice(english_526)
-    user_last_task[message.chat.id] = task
-    bot.send_message(message.chat.id, task["task"])
-
-@bot.message_handler(commands=['logic'])
-def logic_cmd(message):
-    task = random.choice(logic)
-    user_last_task[message.chat.id] = task
-    bot.send_message(message.chat.id, task["task"])
-
-@bot.message_handler(commands=['task'])
-def task_cmd(message):
-    task = random.choice(all_tasks)
-    user_last_task[message.chat.id] = task
-    bot.send_message(message.chat.id, task["task"])
-
-# ==================== ОБРАБОТКА ВСЕХ СООБЩЕНИЙ ====================
-
-@bot.message_handler(func=lambda m: True)
-def handle_all(message):
-    user_id = message.chat.id
-    text = message.text.strip()
-    
-    # Добавляем пользователя в список для напоминаний
-    user_chat_ids.add(user_id)
-    
-    # Если пользователь ещё не рассказал о себе
-    if user_id in user_started and user_id not in user_data:
-        user_data[user_id] = {'bio': text}
-        
-        words = text.split()
-        if len(words) > 0:
-            user_data[user_id]['name'] = words[0]
-        
-        bot.send_message(user_id, "✅ Спасибо! Теперь я знаю о тебе. Буду обращаться по имени в напоминаниях. А теперь давай заниматься! Напиши /start чтобы увидеть команды.")
-        return
-    
-    # Пропускаем команды (они уже обработаны выше)
-    if text.startswith('/'):
-        return
-    
-    # Проверяем математические примеры
-    math_result = solve_math_example(text)
-    if math_result:
-        bot.send_message(user_id, math_result)
-        return
-    
-    # Проверяем ответы на задачи
-    if text.lower().startswith("ответ:"):
-        user_answer = text[6:].strip()
-        
-        if user_id in user_last_task:
-            task = user_last_task[user_id]
-            result = check_answer(user_answer, task["answer"])
-            bot.send_message(user_id, result)
-        else:
-            bot.send_message(user_id, "❓ Сначала получи задачу (например /math526)")
-        return
-    
-    # Простое общение
-    response = chat_response(text, user_id)
-    if response:
-        bot.send_message(user_id, response)
-    else:
-        # Если ничего не подошло — молчим (не спамим)
-        pass
-
-@bot.message_handler(content_types=['photo'])
-def handle_photo(message):
-    bot.reply_to(message, "📸 Фото получено. Напиши ответ текстом: **Ответ: ...**")
-
-# ==================== ЗАПУСК ====================
-
-def run_bot():
-    while True:
-        try:
-            bot.polling()
-        except Exception as e:
-            print(f"Ошибка: {e}")
-            time.sleep(5)
-
-@app.route('/')
-def home():
-    return "Bot is running"
-
-if __name__ == "__main__":
-    schedule_thread = threading.Thread(target=run_schedule)
-    schedule_thread.daemon = True
-    schedule_thread.start()
-    
-    thread = threading.Thread(target=run_bot)
-    thread.daemon = True
-    thread.start()
-    
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+Напиши **"Ответ: твой ответ
